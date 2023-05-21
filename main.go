@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"encoding/json"
 	"sync"
+	"log"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -51,20 +52,27 @@ type CreateUserResponse struct {
 func getUser(w http.ResponseWriter, r *http.Request){
 	for _, user := range users {
 		if user.ID == chi.URLParam(r, "id"){
-			json.NewEncoder(w).Encode(GetUserResponse{
-				ID: user.ID,
-				Name: user.Name,
-			})
+			respond(
+				w,
+				http.StatusOK,
+				GetUserResponse{
+					ID: user.ID,
+					Name: user.Name,
+				},
+			)
 			return
 		}
 	}
-	w.WriteHeader(http.StatusNotFound)
-	json.NewEncoder(w).Encode(GetUserResponse{
-		Error: &ErrorResponse{
-			Message: "User not found",
-			Code: "user_not_found",
+	respond(
+		w,
+		http.StatusNotFound,
+		GetUserResponse{
+			Error: &ErrorResponse{
+				Message: "User not found",
+				Code: "user_not_found",
+			},
 		},
-	})
+	)
 	return
 }
 
@@ -73,24 +81,30 @@ func createUser(w http.ResponseWriter, r *http.Request){
 	
 	err := json.NewDecoder(r.Body).Decode(&userReq)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(CreateUserResponse{
-			Error: &ErrorResponse{
-				Message: "Something unexpected happened. Please try again",
-				Code: "unexpected_error",
+		respond(
+			w,
+			http.StatusBadRequest,
+			CreateUserResponse{
+				Error: &ErrorResponse{
+					Message: "Something unexpected happened. Please try again",
+					Code: "unexpected_error",
+				},
 			},
-		})
+		)
 		return
 	}
 
 	if userReq.Name == "" || userReq.Password == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(CreateUserResponse{
-			Error: &ErrorResponse{
-				Message: "Please enter valid user details",
-				Code: "invalid_input",
+		respond(
+			w,
+			http.StatusBadRequest,
+			CreateUserResponse{
+				Error: &ErrorResponse{
+					Message: "Please enter valid user details",
+					Code: "invalid_input",
+				},
 			},
-		})
+		)
 		return
 	}
 
@@ -103,8 +117,24 @@ func createUser(w http.ResponseWriter, r *http.Request){
 	})
 	userMutex.Unlock()
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(CreateUserResponse{
-		ID: userID,
-	})
+	respond(
+		w, 
+		http.StatusCreated,
+		CreateUserResponse{
+			ID: userID,
+		}, 
+	)
+}
+
+func respond(w http.ResponseWriter, status int, resp any){
+	logResponse(status, resp)
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(resp)
+}
+
+func logResponse(status int, resp any){
+	//todo: add requestID
+	respJSON, _ := json.Marshal(resp)
+	log.Printf("Status: %d - Response: %+v", status, string(respJSON))
 }
