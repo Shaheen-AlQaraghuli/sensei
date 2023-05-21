@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"encoding/json"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -15,6 +16,7 @@ type User struct {
 }
 
 var users []User = []User{}
+var userMutex sync.Mutex
 
 func main(){
 	router := chi.NewRouter()
@@ -65,7 +67,7 @@ func createUser(w http.ResponseWriter, r *http.Request){
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(CreateUserResponse{
-			ErrorMessage: "Please enter valid user details",
+			ErrorMessage: "Something unexpected happened. Please try again",
 		})
 		return
 	}
@@ -79,11 +81,13 @@ func createUser(w http.ResponseWriter, r *http.Request){
 	}
 
 	userID := uuid.NewString()
+	userMutex.Lock()
 	users = append(users, User{
 		ID: userID,
 		Name: userReq.Name,
 		Password: userReq.Password,
 	})
+	userMutex.Unlock()
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(CreateUserResponse{
