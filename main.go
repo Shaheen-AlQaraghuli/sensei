@@ -1,10 +1,12 @@
 package main
 
 import (
-	"net/http"
 	"encoding/json"
-	"sync"
+	"fmt"
 	"log"
+	"net/http"
+	"strings"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -55,6 +57,11 @@ type UpdateUserRequest struct {
 	Password string `json:"password"`
 }
 
+type LogDetail struct {
+	Key string
+	Value any
+}
+
 func getUser(w http.ResponseWriter, r *http.Request){
 	for _, user := range users {
 		if user.ID == chi.URLParam(r, "id"){
@@ -87,6 +94,7 @@ func createUser(w http.ResponseWriter, r *http.Request){
 	
 	err := json.NewDecoder(r.Body).Decode(&userReq)
 	if err != nil {
+		logError(err, LogDetail{Key: "message", Value: "decoder failed"})
 		respond(
 			w,
 			http.StatusBadRequest,
@@ -161,7 +169,19 @@ func deleteUser(w http.ResponseWriter, r *http.Request){
 
 func updateUser(w http.ResponseWriter, r *http.Request){
 	var userDetails UpdateUserRequest
-	json.NewDecoder(r.Body).Decode(&userDetails)
+	err := json.NewDecoder(r.Body).Decode(&userDetails)
+	if err != nil {
+		logError(err, LogDetail{Key: "message", Value: "decoder failed"})
+		respond(
+			w,
+			http.StatusBadRequest,
+			ErrorResponse{
+				Message: "Something unexpected happened. Please try again",
+				Code: "unexpected_error",
+			},
+		)
+	}
+
 	if userDetails.Password == "" {
 		respond(
 			w,
@@ -212,6 +232,17 @@ func logResponse(status int, resp any){
 	//todo: add requestID
 	respJSON, _ := json.Marshal(resp)
 	log.Printf("Status: %d - Response: %+v", status, string(respJSON))
+}
+
+func logError(err error, lds ...LogDetail){
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Error: %+v", err))
+
+	for _, ld := range lds {
+		sb.WriteString(fmt.Sprintf("\n%s: %+v", ld.Key, ld.Value))
+	}
+
+	log.Print(sb.String())
 }
 
 //decode function concept
