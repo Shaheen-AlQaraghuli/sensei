@@ -13,15 +13,15 @@ import (
 )
 
 type User struct {
-	ID 		string
-	Name	string
+	ID       string
+	Name     string
 	Password string
 }
 
 var users []User = []User{}
 var userMutex sync.Mutex
 
-func main(){
+func main() {
 	router := chi.NewRouter()
 
 	router.Get("/user/{id}", getUser)
@@ -34,12 +34,12 @@ func main(){
 
 type ErrorResponse struct {
 	Message string `json:"message"`
-	Code string `json:"code"`
+	Code    string `json:"code"`
 }
 
 type GetUserResponse struct {
-	ID   string    `json:"id,omitempty"`
-	Name string `json:"name,omitempty"`
+	ID    string         `json:"id,omitempty"`
+	Name  string         `json:"name,omitempty"`
 	Error *ErrorResponse `json:"error"`
 }
 
@@ -49,7 +49,7 @@ type CreateUserRequest struct {
 }
 
 type CreateUserResponse struct {
-	ID           string    `json:"id,omitempty"`
+	ID    string         `json:"id,omitempty"`
 	Error *ErrorResponse `json:"error"`
 }
 
@@ -58,18 +58,18 @@ type UpdateUserRequest struct {
 }
 
 type LogDetail struct {
-	Key string
+	Key   string
 	Value any
 }
 
-func getUser(w http.ResponseWriter, r *http.Request){
+func getUser(w http.ResponseWriter, r *http.Request) {
 	for _, user := range users {
-		if user.ID == chi.URLParam(r, "id"){
+		if user.ID == chi.URLParam(r, "id") {
 			respond(
 				w,
 				http.StatusOK,
 				GetUserResponse{
-					ID: user.ID,
+					ID:   user.ID,
 					Name: user.Name,
 				},
 			)
@@ -82,16 +82,16 @@ func getUser(w http.ResponseWriter, r *http.Request){
 		GetUserResponse{
 			Error: &ErrorResponse{
 				Message: "User not found",
-				Code: "user_not_found",
+				Code:    "user_not_found",
 			},
 		},
 	)
 	return
 }
 
-func createUser(w http.ResponseWriter, r *http.Request){
+func createUser(w http.ResponseWriter, r *http.Request) {
 	var userReq CreateUserRequest
-	
+
 	err := json.NewDecoder(r.Body).Decode(&userReq)
 	if err != nil {
 		logError(err, LogDetail{Key: "message", Value: "decoder failed"})
@@ -101,7 +101,7 @@ func createUser(w http.ResponseWriter, r *http.Request){
 			CreateUserResponse{
 				Error: &ErrorResponse{
 					Message: "Something unexpected happened. Please try again",
-					Code: "unexpected_error",
+					Code:    "unexpected_error",
 				},
 			},
 		)
@@ -115,7 +115,7 @@ func createUser(w http.ResponseWriter, r *http.Request){
 			CreateUserResponse{
 				Error: &ErrorResponse{
 					Message: "Please enter valid user details",
-					Code: "invalid_input",
+					Code:    "invalid_input",
 				},
 			},
 		)
@@ -125,22 +125,22 @@ func createUser(w http.ResponseWriter, r *http.Request){
 	userID := uuid.NewString()
 	userMutex.Lock()
 	users = append(users, User{
-		ID: userID,
-		Name: userReq.Name,
+		ID:       userID,
+		Name:     userReq.Name,
 		Password: userReq.Password,
 	})
 	userMutex.Unlock()
 
 	respond(
-		w, 
+		w,
 		http.StatusCreated,
 		CreateUserResponse{
 			ID: userID,
-		}, 
+		},
 	)
 }
 
-func deleteUser(w http.ResponseWriter, r *http.Request){
+func deleteUser(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
 	for i, user := range users {
 		if user.ID == userID {
@@ -161,13 +161,13 @@ func deleteUser(w http.ResponseWriter, r *http.Request){
 		http.StatusNotFound,
 		ErrorResponse{
 			Message: "User not found",
-			Code: "user_not_found",
+			Code:    "user_not_found",
 		},
 	)
 	return
 }
 
-func updateUser(w http.ResponseWriter, r *http.Request){
+func updateUser(w http.ResponseWriter, r *http.Request) {
 	var userDetails UpdateUserRequest
 	err := json.NewDecoder(r.Body).Decode(&userDetails)
 	if err != nil {
@@ -177,7 +177,7 @@ func updateUser(w http.ResponseWriter, r *http.Request){
 			http.StatusBadRequest,
 			ErrorResponse{
 				Message: "Something unexpected happened. Please try again",
-				Code: "unexpected_error",
+				Code:    "unexpected_error",
 			},
 		)
 	}
@@ -188,7 +188,7 @@ func updateUser(w http.ResponseWriter, r *http.Request){
 			http.StatusBadRequest,
 			ErrorResponse{
 				Message: "Please enter valid user details",
-				Code: "invalid_input",
+				Code:    "invalid_input",
 			},
 		)
 		return
@@ -215,26 +215,26 @@ func updateUser(w http.ResponseWriter, r *http.Request){
 		http.StatusNotFound,
 		ErrorResponse{
 			Message: "User not found",
-			Code: "user_not_found",
+			Code:    "user_not_found",
 		},
 	)
 	return
 }
 
-func respond(w http.ResponseWriter, status int, resp any){
+func respond(w http.ResponseWriter, status int, resp any) {
 	logResponse(status, resp)
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(resp)
 }
 
-func logResponse(status int, resp any){
+func logResponse(status int, resp any) {
 	//todo: add requestID
 	respJSON, _ := json.Marshal(resp)
 	log.Printf("Status: %d - Response: %+v", status, string(respJSON))
 }
 
-func logError(err error, lds ...LogDetail){
+func logError(err error, lds ...LogDetail) {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("Error: %+v", err))
 
