@@ -24,6 +24,7 @@ func main(){
 
 	router.Get("/user/{id}", getUser)
 	router.Post("/user", createUser)
+	router.Delete("/user/{id}", deleteUser)
 
 	http.ListenAndServe(":3000", router)
 }
@@ -124,6 +125,35 @@ func createUser(w http.ResponseWriter, r *http.Request){
 			ID: userID,
 		}, 
 	)
+}
+
+func deleteUser(w http.ResponseWriter, r *http.Request){
+	userID := chi.URLParam(r, "id")
+	for i, user := range users {
+		if user.ID == userID {
+			userMutex.Lock()
+			users = append(users[:i], users[i+1:]...)
+			userMutex.Unlock()
+
+			respond(
+				w,
+				http.StatusOK,
+				nil,
+			)
+			return
+		}
+	}
+	respond(
+		w,
+		http.StatusNotFound,
+		GetUserResponse{
+			Error: &ErrorResponse{
+				Message: "User not found",
+				Code: "user_not_found",
+			},
+		},
+	)
+	return
 }
 
 func respond(w http.ResponseWriter, status int, resp any){
