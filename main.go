@@ -24,6 +24,7 @@ func main(){
 
 	router.Get("/user/{id}", getUser)
 	router.Post("/user", createUser)
+	router.Patch("/user/{id}", updateUser)
 	router.Delete("/user/{id}", deleteUser)
 
 	http.ListenAndServe(":3000", router)
@@ -48,6 +49,10 @@ type CreateUserRequest struct {
 type CreateUserResponse struct {
 	ID           string    `json:"id,omitempty"`
 	Error *ErrorResponse `json:"error"`
+}
+
+type UpdateUserRequest struct {
+	Password string `json:"password"`
 }
 
 func getUser(w http.ResponseWriter, r *http.Request){
@@ -146,11 +151,51 @@ func deleteUser(w http.ResponseWriter, r *http.Request){
 	respond(
 		w,
 		http.StatusNotFound,
-		GetUserResponse{
-			Error: &ErrorResponse{
-				Message: "User not found",
-				Code: "user_not_found",
+		ErrorResponse{
+			Message: "User not found",
+			Code: "user_not_found",
+		},
+	)
+	return
+}
+
+func updateUser(w http.ResponseWriter, r *http.Request){
+	var userDetails UpdateUserRequest
+	json.NewDecoder(r.Body).Decode(&userDetails)
+	if userDetails.Password == "" {
+		respond(
+			w,
+			http.StatusBadRequest,
+			ErrorResponse{
+				Message: "Please enter valid user details",
+				Code: "invalid_input",
 			},
+		)
+		return
+	}
+
+	userID := chi.URLParam(r, "id")
+	for i, user := range users {
+		if user.ID == userID {
+			userMutex.Lock()
+			users[i].Password = userDetails.Password
+			userMutex.Unlock()
+
+			respond(
+				w,
+				http.StatusOK,
+				nil,
+			)
+			return
+		}
+	}
+
+	respond(
+		w,
+		http.StatusNotFound,
+		ErrorResponse{
+			Message: "User not found",
+			Code: "user_not_found",
 		},
 	)
 	return
