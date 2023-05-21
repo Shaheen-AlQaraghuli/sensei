@@ -27,10 +27,15 @@ func main(){
 	http.ListenAndServe(":3000", router)
 }
 
+type ErrorResponse struct {
+	Message string `json:"message"`
+	Code string `json:"code"`
+}
+
 type GetUserResponse struct {
 	ID   string    `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
-	ErrorMessage string `json:"error_message,omitempty"`
+	Error *ErrorResponse `json:"error"`
 }
 
 type CreateUserRequest struct {
@@ -40,7 +45,7 @@ type CreateUserRequest struct {
 
 type CreateUserResponse struct {
 	ID           string    `json:"id,omitempty"`
-	ErrorMessage string `json:"error_message,omitempty"`
+	Error *ErrorResponse `json:"error"`
 }
 
 func getUser(w http.ResponseWriter, r *http.Request){
@@ -55,7 +60,10 @@ func getUser(w http.ResponseWriter, r *http.Request){
 	}
 	w.WriteHeader(http.StatusNotFound)
 	json.NewEncoder(w).Encode(GetUserResponse{
-		ErrorMessage: "User not found",
+		Error: &ErrorResponse{
+			Message: "User not found",
+			Code: "user_not_found",
+		},
 	})
 	return
 }
@@ -67,7 +75,10 @@ func createUser(w http.ResponseWriter, r *http.Request){
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(CreateUserResponse{
-			ErrorMessage: "Something unexpected happened. Please try again",
+			Error: &ErrorResponse{
+				Message: "Something unexpected happened. Please try again",
+				Code: "unexpected_error",
+			},
 		})
 		return
 	}
@@ -75,7 +86,10 @@ func createUser(w http.ResponseWriter, r *http.Request){
 	if userReq.Name == "" || userReq.Password == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(CreateUserResponse{
-			ErrorMessage: "Please enter valid user details",
+			Error: &ErrorResponse{
+				Message: "Please enter valid user details",
+				Code: "invalid_input",
+			},
 		})
 		return
 	}
