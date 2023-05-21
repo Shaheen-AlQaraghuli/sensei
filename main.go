@@ -138,3 +138,22 @@ func logResponse(status int, resp any){
 	respJSON, _ := json.Marshal(resp)
 	log.Printf("Status: %d - Response: %+v", status, string(respJSON))
 }
+
+//decode function concept
+/* func decodeRequest(w http.ResponseWriter, r *http.Request, v any) bool{
+	err := json.NewDecoder(r.Body).Decode(v)
+	if err != nil {
+		respond(
+			w,
+			http.StatusBadRequest,
+			CreateUserResponse{
+				Error: &ErrorResponse{
+					Message: "Something unexpected happened. Please try again",
+					Code: "unexpected_error",
+				},
+			},
+		)
+		return false
+	}
+	return true
+} */
