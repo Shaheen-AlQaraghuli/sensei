@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/gookit/config"
+	"github.com/jackc/pgx/v5"
 )
 
 type User struct {
@@ -20,8 +23,19 @@ type User struct {
 
 var users []User = []User{}
 var userMutex sync.Mutex
+var db DB
+
+type DB struct {
+	Conn *pgx.Conn
+}
 
 func main() {
+	config.LoadFiles("config/app.json")
+	dbURL, _ := config.String("DATABASE_URL")
+
+	db.Conn = connectToDatabase(dbURL)
+	defer db.Conn.Close(context.Background())
+
 	router := chi.NewRouter()
 
 	router.Get("/user/{id}", getUser)
@@ -63,30 +77,44 @@ type LogDetail struct {
 }
 
 func getUser(w http.ResponseWriter, r *http.Request) {
-	for _, user := range users {
-		if user.ID == chi.URLParam(r, "id") {
-			respond(
-				w,
-				http.StatusOK,
-				GetUserResponse{
-					ID:   user.ID,
-					Name: user.Name,
+	userID := chi.URLParam(r, "id")
+	user, err := db.getUser(userID)
+	if err != nil {
+		respond(
+			w,
+			http.StatusInternalServerError,
+			GetUserResponse{
+				Error: &ErrorResponse{
+					Message: "An unexpected error happened. Please try again later",
+					Code:    "internal_server_err",
 				},
-			)
-			return
-		}
+			},
+		)
+		return
 	}
+
+	if user == nil {
+		respond(
+			w,
+			http.StatusNotFound,
+			GetUserResponse{
+				Error: &ErrorResponse{
+					Message: "User not found",
+					Code:    "user_not_found",
+				},
+			},
+		)
+		return
+	}
+
 	respond(
 		w,
-		http.StatusNotFound,
+		http.StatusOK,
 		GetUserResponse{
-			Error: &ErrorResponse{
-				Message: "User not found",
-				Code:    "user_not_found",
-			},
+			ID:   user.ID,
+			Name: user.Name,
 		},
 	)
-	return
 }
 
 func createUser(w http.ResponseWriter, r *http.Request) {
@@ -245,6 +273,15 @@ func logError(err error, lds ...LogDetail) {
 	log.Print(sb.String())
 }
 
+func connectToDatabase(url string) *pgx.Conn {
+	conn, err := pgx.Connect(context.Background(), url)
+	if err != nil {
+		log.Fatalf("Unable to connect to database: %v\n", err)
+	}
+
+	return conn
+}
+
 //decode function concept
 /* func decodeRequest(w http.ResponseWriter, r *http.Request, v any) bool{
 	err := json.NewDecoder(r.Body).Decode(v)
@@ -263,3 +300,19 @@ func logError(err error, lds ...LogDetail) {
 	}
 	return true
 } */
+
+func (db DB) getUser(userID string) (*User, error) {
+	var user User
+	err := db.Conn.QueryRow(context.Background(),
+		"select uuid as id, name from users where uuid = $1",
+		userID).Scan(&user)
+	if err != nil {
+		logError(err)
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
